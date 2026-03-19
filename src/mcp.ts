@@ -15,82 +15,116 @@ function mcpResponse(input: any): CallToolResult {
   };
 }
 
-export const server = new McpServer({
-  name: "MCP Demo Server",
-  version: "1.0.0",
-});
+export const mcpServer = () => {
+  const server = new McpServer({
+    name: "MCP Demo Server",
+    version: "1.0.0",
+  });
 
-server.registerTool(
-  "DescribedEnum",
-  {
-    description: "Echoes the string message",
-    inputSchema: z.object({
-      message: z
-        .enum(["OptionA", "OptionB", "OptionC"])
-        .describe("An option from the enum"),
-    }),
-  },
-  async (params) => {
-    return mcpResponse(params.message);
-  },
-);
+  // The agent typically doesn't know the allowed Enum values (unless they are manually added to the description)
+  server.registerTool(
+    "Enum",
+    {
+      description: "Echoes the string message",
+      inputSchema: z.object({
+        message: z
+          .enum(["Apple", "Banana", "Cherry"])
+          .describe("An option from the enum"),
+      }),
+    },
+    async (params) => {
+      return mcpResponse(params.message);
+    },
+  );
 
-server.registerTool(
-  "ObjectWithNullable",
-  {
-    description: "Echoes the object with a nullable field",
-    inputSchema: z.object({
-      name: z.string().describe("The name of the person"),
-      nickname: z
-        .string()
-        .nullable()
-        .optional()
-        .describe("The nickname, can be null"),
-    }),
-  },
-  async (params) => {
-    return mcpResponse(params);
-  },
-);
+  // The agent does not know about the min/max constraints on the number.
+  server.registerTool(
+    "NumericConstraints",
+    {
+      inputSchema: z.object({
+        value: z.number().min(32).max(212),
+      }),
+    },
+    async (params) => {
+      return mcpResponse(params.value);
+    },
+  );
 
-server.registerTool(
-  "ObjectWithNullable2",
-  {
-    description: "Echoes the object with a nullable number field",
-    inputSchema: z.object({
-      id: z.number().describe("The ID number"),
-      nickname: z
-        .string()
-        .or(z.null())
-        .optional()
-        .describe("The score, can be null"),
-    }),
-  },
-  async (params) => {
-    return mcpResponse(params);
-  },
-);
+  // The agent does not know about the length constraints.
+  server.registerTool(
+    "StringConstraints",
+    {
+      inputSchema: z.object({
+        value: z.string().min(5).max(20),
+      }),
+    },
+    async (params) => {
+      return mcpResponse(params.value);
+    },
+  );
 
-server.registerTool(
-  "DiscriminatedUnion",
-  {
-    description: "Echoes the discriminated union object",
-    inputSchema: z.object({
-      data: z
-        .union([
-          z.object({
-            type: z.literal("A"),
-            valueA: z.string().describe("Value for type A"),
-          }),
-          z.object({
-            type: z.literal("B"),
-            valueB: z.number().describe("Value for type B"),
-          }),
-        ])
-        .describe("A discriminated union of types A and B"),
-    }),
-  },
-  async (params) => {
-    return mcpResponse(params);
-  },
-);
+  // The agent does not know about the regex pattern.
+  server.registerTool(
+    "StringPattern",
+    {
+      inputSchema: z.object({
+        value: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      }),
+    },
+    async (params) => {
+      return mcpResponse(params.value);
+    },
+  );
+
+  // This one does not even show up as a tool
+  server.registerTool(
+    "DiscriminatedUnion",
+    {
+      description: "Echoes the discriminated union object",
+      inputSchema: z.object({
+        data: z
+          .discriminatedUnion("type", [
+            z.object({
+              type: z.literal("A"),
+              valueA: z.string().describe("Value for type A"),
+            }),
+            z.object({
+              type: z.literal("B"),
+              valueB: z.number().describe("Value for type B"),
+            }),
+          ])
+          .describe("A discriminated union of types A and B"),
+      }),
+    },
+    async (params) => {
+      return mcpResponse(params);
+    },
+  );
+
+  // This one works, but is less ideal for Typescript
+  server.registerTool(
+    "StandardUnion",
+    {
+      description: "Echoes the standard union object",
+      inputSchema: z.object({
+        data: z
+          .union([
+            z.object({
+              type: z.literal("A"),
+              valueA: z.string().describe("Value for type A"),
+            }),
+            z.object({
+              type: z.literal("B"),
+              valueB: z.number().describe("Value for type B"),
+            }),
+          ])
+          .describe("A standard union of types A and B"),
+      }),
+    },
+    async (params) => {
+      return mcpResponse(params);
+    },
+  );
+
+  return server;
+};
